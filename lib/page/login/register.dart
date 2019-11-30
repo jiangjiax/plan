@@ -60,46 +60,6 @@ class _RegisterState extends State<Register> {
     super.dispose();
   }
 
-  void custom(BuildContext context) {
-    showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text("自定义番茄时间设置"),
-          content: TextField(
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              hintText: "25分钟",
-              labelStyle: TextStyle(fontSize: 15.0),
-            ),
-            onChanged: (text){
-              setState(() {
-              });
-            },
-          ),
-          actions: <Widget>[
-            FlatButton(
-              child: Text("确定", style: TextStyle(color: Colors.blue)),
-              onPressed: () {
-                setState(() {
-                  Navigator.of(context).pop();
-                });
-              },
-            ),
-            FlatButton(
-              child: Text("取消", style: TextStyle(color: Colors.black)),
-              onPressed: () {
-                setState(() {
-                  Navigator.of(context).pop();
-                });
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

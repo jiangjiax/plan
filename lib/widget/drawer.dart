@@ -17,15 +17,11 @@ class MyDrawer extends StatelessWidget {
         children: <Widget>[
           TopUser(),
           ListTile(
-            leading: new CircleAvatar(
-              child: new Icon(Icons.help),
-            ),
+            leading: Icon(Icons.help),
             title: Text("查看帮助"),
           ),
           ListTile(
-            leading: new CircleAvatar(
-              child: new Icon(Icons.mail),
-            ),
+            leading: Icon(Icons.mail),
             title: Text("建议信箱"),
           ),
         ],

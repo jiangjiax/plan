@@ -57,8 +57,9 @@ Future getAjax(String url, Map<String, String> con) async {
 // 初始化列表
 void initList(context, cate) {  
   var pro = Provide.value<ItemList>(context);
+  var catestr = getCatestr(cate);
 
-  showPrefsList("items").then((v){
+  showPrefsList(catestr).then((v){
     bool syn = false; // 是否同步
     List listdata = [];
 
@@ -70,30 +71,52 @@ void initList(context, cate) {
       }
       listdata.add(vjson);
     }
-
-    if (syn) {
+    if ((syn || listdata.length == 0) && Provide.value<UserData>(context).login == "1") {
       // 同步
       getAjax(
         "IndexItem",
         {"cate": cate}
       ).then((val){
-        if (val["err"] == 1) {
-
-        } else if (val["err"] == 0) {
+        if (val["err"] == 0) {
+          PrintLog.e({"a1":val});
           List<String> listdata = [];
           for (var i = 0; i < val["data"].length; i++) {
             val["data"][i]["syn"] = "1";
             var jv = json.encode(val["data"][i]);
             listdata.add(jv);
           }
-          addPrefsList("items", listdata);
-          pro.changeList(val["data"]);
+          addPrefsList(catestr, listdata);
+          pro.changeList(val["data"], cate);
+        } else {
+          print(val);
         }
       });
     } else {
       // 不同步，获取本地的
-      pro.changeList(listdata);
+      var p = pro.items.toString();
+      switch(cate) {
+        case "1":
+          // 娱乐
+          p = pro.plays.toString();
+          break;
+        case "2":
+          // 明日
+          break;
+        case "3":
+          // 月计划
+          break;
+        case "4":
+          // 年计划
+          break;
+        default:
+          break;
+      }
+      if (p != v) {
+        pro.changeList(listdata, cate);
+      }
     }
+
+    topTodayData(context, 0, cate);
   });
 }
 
@@ -187,17 +210,7 @@ void editMyNickname(context, nickname) {
     "UserEdit",
     {"nickname": nickname}
   ).then((val){
-    if (val["err"] == 1) {
-      Fluttertoast.showToast(
-        msg: "昵称修改发生错误，请重试",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        timeInSecForIos: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0
-      );
-    } else if (val["err"] == 0) {
+    if (val["err"] == 0) {
       Navigator.of(context).pop();
       showPrefsValue("login").then((v){
         if (v != "") {
@@ -218,36 +231,62 @@ void editMyNickname(context, nickname) {
         textColor: Colors.white,
         fontSize: 16.0
       );
+    } else {
+      Fluttertoast.showToast(
+        msg: "昵称修改发生错误，请重试",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIos: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0
+      );
     }
   });
 }
 
 // 今日任务：清单完成任务数百分比、任务数、完成任务数、清单获得心心数(item), 用户总心心数(user)
 // 执行：完成(完成、取消)任务时，删除任务时，增加任务时，initApp
-void topTodayData(context, int heart) {
+void topTodayData(context, int heart, cate) {
   var proitem = Provide.value<ItemList>(context);
   var proUser = Provide.value<UserData>(context);
-  var itemTotal = proitem.items.length; // 任务数
+  var lists = proitem.items;
+  switch(cate) {
+    case "1":
+      // 娱乐
+      lists = proitem.plays;
+      break;
+    case "2":
+      // 明日
+      break;
+    default:
+      break;
+  }
+  var itemTotal = lists.length; // 任务数
   var itemComplete = 0; // 完成任务数
   var heartTotal = proUser.heart; // 用户总心心数
-  var heartComplete = 0; // 获得心心数
+  var heartComplete = 0; // 获得心心数或消费心心数
   double itemPercentage = 0.0; // 完成任务数百分比
 
   for (var i = 0; i < itemTotal; i++) {
-    if (proitem.items[i]["complete"] == "1") {
+    if (lists[i]["complete"] == "1") {
       itemComplete += 1;
-    }
-    if (proitem.items[i]["heart"] != null) {
-      heartComplete += int.parse(proitem.items[i]["heart"]);
+      if (lists[i]["heart"] != null) {
+        heartComplete += int.parse(lists[i]["heart"]);
+      }
     }
   }
+
   itemPercentage = itemComplete/itemTotal;
   // 完成任务时改变用户心心
   if (heart != 0) {
     heartTotal += heart;
     editMyHeart(context, heartTotal);
   }
-  proitem.changeData(itemTotal, itemComplete, itemPercentage, heartComplete);
+  if (itemPercentage.isNaN) {
+    itemPercentage = 0.0;
+  }
+  proitem.changeData(cate, itemTotal, itemComplete, itemPercentage, heartComplete);
 }
 
 // 修改用户总心心
@@ -257,7 +296,7 @@ void editMyHeart(context, int heart) {
   postAjax(
     "UserEdit",
     {"heart": heart.toString()}
-  ).then((val){
+  ).then((val) {
     if (val["err"] == 0) {
       showPrefsValue("login").then((v){
         if (v != "") {
@@ -277,7 +316,8 @@ void editMyHeart(context, int heart) {
 
 // 完成
 void itemComplete(context, cate, index, value) {
-  showPrefsList("items").then((v){
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
     if (v != "") {
       var vjson = json.decode(v[index]);
       vjson["complete"] = value;
@@ -286,10 +326,19 @@ void itemComplete(context, cate, index, value) {
       var heart = vjson["heart"];
       var jv = json.encode(vjson);
       v[index] = jv;
-      addPrefsList("items", v);  
+      addPrefsList(catestr, v);  
       var pro = Provide.value<ItemList>(context);
-      pro.changeComplete(index, value);
-      topTodayData(context, int.parse(heart));
+      pro.changeComplete(index, value, cate);
+      int intheart;
+      if (heart is String) {
+        intheart = int.parse(heart);
+      } else {
+        intheart = heart;
+      }
+      if (value == "0") {
+        intheart = -intheart;
+      }
+      topTodayData(context, intheart, cate);
 
       if (id != null && id != "") {
         postAjax(
@@ -297,13 +346,13 @@ void itemComplete(context, cate, index, value) {
           {"id": id, "complete": value}
         ).then((val){
           if (val["err"] == 0) {
-            showPrefsList("items").then((v){
+            showPrefsList(catestr).then((v){
               if (v != "") {
                 var vjson = json.decode(v[index]);
                 vjson["syn"] = "1";
                 var jv = json.encode(vjson);
                 v[index] = jv;
-                addPrefsList("items", v);
+                addPrefsList(catestr, v);
               }
             });
           } else {
@@ -313,5 +362,261 @@ void itemComplete(context, cate, index, value) {
       }
 
     }
+  });
+}
+
+// 设为重要
+void itemIm(context, cate, index, value) {
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    if (v != "") {
+      var vjson = json.decode(v[index]);
+      vjson["im"] = value;
+      vjson["syn"] = "0";
+      var id = vjson["id"];
+      var jv = json.encode(vjson);
+      v[index] = jv;
+      addPrefsList(catestr, v);  
+      var pro = Provide.value<ItemList>(context);
+      pro.changeIm(index, value, cate);
+
+      if (id != null && id != "") {
+        postAjax(
+          "EditItem",
+          {"id": id, "im": value}
+        ).then((val){
+          if (val["err"] == 0) {
+            showPrefsList(catestr).then((v){
+              if (v != "") {
+                var vjson = json.decode(v[index]);
+                vjson["syn"] = "1";
+                var jv = json.encode(vjson);
+                v[index] = jv;
+                addPrefsList(catestr, v);
+              }
+            });
+          } else {
+            print(val);
+          }
+        });
+      }
+
+    }
+  });
+}
+
+// 编辑标题
+void itemTitle(context, cate, index, value) {
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    if (v != "") {
+      var vjson = json.decode(v[index]);
+      vjson["title"] = value;
+      vjson["syn"] = "0";
+      var id = vjson["id"];
+      var jv = json.encode(vjson);
+      v[index] = jv;
+      addPrefsList(catestr, v);  
+      var pro = Provide.value<ItemList>(context);
+      pro.changeTitle(index, value, cate);
+
+      if (id != null && id != "") {
+        postAjax(
+          "EditItem",
+          {"id": id, "title": value}
+        ).then((val){
+          if (val["err"] == 0) {
+            showPrefsList(catestr).then((v){
+              if (v != "") {
+                var vjson = json.decode(v[index]);
+                vjson["syn"] = "1";
+                var jv = json.encode(vjson);
+                v[index] = jv;
+                addPrefsList(catestr, v);
+              }
+            });
+          } else {
+            print(val);
+          }
+        });
+      }
+
+    }
+  });
+}
+
+// 编辑备注
+void itemNote(context, cate, index, value) {
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    if (v != "") {
+      var vjson = json.decode(v[index]);
+      vjson["note"] = value;
+      vjson["syn"] = "0";
+      var id = vjson["id"];
+      var jv = json.encode(vjson);
+      v[index] = jv;
+      addPrefsList(catestr, v);  
+      var pro = Provide.value<ItemList>(context);
+      pro.changeNote(index, value, cate);
+
+      if (id != null && id != "") {
+        postAjax(
+          "EditItem",
+          {"id": id, "note": value}
+        ).then((val){
+          if (val["err"] == 0) {
+            showPrefsList(catestr).then((v){
+              if (v != "") {
+                var vjson = json.decode(v[index]);
+                vjson["syn"] = "1";
+                var jv = json.encode(vjson);
+                v[index] = jv;
+                addPrefsList(catestr, v);
+              }
+            });
+          } else {
+            print(val);
+          }
+        });
+      }
+
+    }
+  });
+}
+
+// 编辑heart
+void itemHeart(context, cate, index, value) {
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    if (v != "") {
+      var vjson = json.decode(v[index]);
+      vjson["heart"] = value;
+      vjson["syn"] = "0";
+      var id = vjson["id"];
+      var jv = json.encode(vjson);
+      v[index] = jv;
+      addPrefsList(catestr, v);  
+      var pro = Provide.value<ItemList>(context);
+      pro.changeHeart(index, value, cate);
+
+      Fluttertoast.showToast(
+        msg: "😊 心心数已更改",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIos: 1,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0
+      );
+
+      if (id != null && id != "") {
+        postAjax(
+          "EditItem",
+          {"id": id, "heart": value.toString()}
+        ).then((val){
+          if (val["err"] == 0) {
+            showPrefsList(catestr).then((v){
+              if (v != "") {
+                var vjson = json.decode(v[index]);
+                vjson["syn"] = "1";
+                var jv = json.encode(vjson);
+                v[index] = jv;
+                addPrefsList(catestr, v);
+              }
+            });
+          } else {
+            print(val);
+          }
+        });
+      }
+
+    }
+  });
+}
+
+// 删除
+void itemDel(context, index, cate) {
+  Navigator.of(context).pop();
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    if (v != "") {
+      var vjson = json.decode(v[index]);
+      var id = vjson["id"];
+      v.removeAt(index);
+      addPrefsList(catestr, v);  
+      var pro = Provide.value<ItemList>(context);
+      pro.del(index, cate);
+
+      Fluttertoast.showToast(
+        msg: "删除成功",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIos: 1,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0
+      );
+
+      if (id != null && id != "") {
+        postAjax(
+          "EditItem",
+          {"id": id, "status": "0"}
+        ).then((val){
+          if (val["err"] == 0) {
+            showPrefsList(catestr).then((v){
+              if (v != "") {
+                pro.myDel.remove(id);
+              }
+            });
+          } else {
+            print(val);
+          }
+        });
+      }
+    }
+  });
+}
+
+// 创建
+void itemAdd(context, cate, title, heart, note) {
+  var catestr = getCatestr(cate);
+  showPrefsList(catestr).then((v){
+    var item = {
+      "id": "",
+      "title": title.toString(),
+      "note": note.toString(),
+      "heart": heart.toString(),
+      "cate": cate.toString(),
+      "im": "0",
+      "complete": "0",
+      "syn": "0", 
+    };
+    var itemstr = json.encode(item);
+    v.add(itemstr);
+    var index = v.length;
+    // json encode
+    addPrefsList(catestr, v);  
+    var pro = Provide.value<ItemList>(context);
+    pro.add(json.decode(itemstr), cate);
+
+    postAjax(
+      "AddItem",
+      {"title": title, "note": note, "heart": heart.toString()}
+    ).then((val){
+      if (val["err"] == 0) {
+        showPrefsList(catestr).then((v){
+          if (v != "") {
+            var vjson = json.decode(v[index]);
+            vjson["syn"] = "1";
+            var jv = json.encode(vjson);
+            v[index] = jv;
+            // addPrefsList(catestr, v);
+          }
+        });
+      } else {
+        print(val);
+      }
+    });
   });
 }

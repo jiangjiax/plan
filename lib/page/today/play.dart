@@ -5,10 +5,9 @@ import '../../models/tool_models.dart';
 import '../../models/ajax_models.dart';
 import 'package:provide/provide.dart';
 import '../../provide/provide.dart';
-import '../../widget/write.dart';
 import '../../widget/content.dart';
 
-class Work extends StatelessWidget {
+class Play extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -28,7 +27,71 @@ class Work extends StatelessWidget {
 }
 
 // 数据显示
-class TopDate extends StatelessWidget {
+class TopDate extends StatefulWidget {
+  @override
+  _TopDateState createState() => _TopDateState();
+}
+
+class _TopDateState extends State<TopDate> {
+  var textv = "宽松模式";
+  bool _switchSelected = false;
+
+  void strict(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("开启严格模式"),
+          content: Text("严格模式下心心数不足将无法完成娱乐。"),
+          actions: <Widget>[
+            FlatButton(
+              child: Text("确定", style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                setState(() {
+                  textv = "严格模式";
+                  _switchSelected = true;
+                  Navigator.of(context).pop();
+                });
+              },
+            ),
+            FlatButton(
+              child: Text("取消", style: TextStyle(color: Colors.black)),
+              onPressed: () => Navigator.of(context).pop(), // 关闭对话框
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void easy(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("开启宽松模式"),
+          content: Text("宽松模式下心心数不足也可以完成娱乐，且心心总数将变为负数。"),
+          actions: <Widget>[
+            FlatButton(
+              child: Text("确定", style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                setState(() {
+                  textv = "宽松模式";
+                  _switchSelected = false;
+                  Navigator.of(context).pop();
+                });
+              },
+            ),
+            FlatButton(
+              child: Text("取消", style: TextStyle(color: Colors.black)),
+              onPressed: () => Navigator.of(context).pop(), // 关闭对话框
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Provide<ItemList>(
@@ -43,7 +106,7 @@ class TopDate extends StatelessWidget {
                   Container(
                     height: 58,
                     alignment: Alignment.center,
-                    child: myProgress(counter.itemPercentage, 54),
+                    child: myProgress(counter.playPercentage, 54),
                   ),
                   Container(
                     margin: const EdgeInsets.only(left: 2),
@@ -86,11 +149,11 @@ class TopDate extends StatelessWidget {
                               Text.rich(TextSpan(
                                 children: [
                                   TextSpan(
-                                    text: " 获得",
+                                    text: " 消费",
                                     style: TextStyle(color: Colors.black45, fontSize: 13.0),
                                   ),
                                   TextSpan(
-                                    text: " ${counter.heartComplete}",
+                                    text: " ${counter.playheartComplete}",
                                     style: TextStyle(fontSize: 13.0),
                                   ),
                                 ]
@@ -103,14 +166,17 @@ class TopDate extends StatelessWidget {
                   )
                 ],
               ),
-              RaisedButton.icon(
-                color: myColor,
-                icon: Icon(Icons.edit, color: Colors.white,),
-                label: Text("写日志", style: TextStyle(color: Colors.white)),
-                onPressed: (){
-                  Navigator.push(context, SlideRightRoute(page: new DayLogs(cate: 0)));
-                },
-              ),
+              Row(
+                children: <Widget>[
+                  Switch(
+                    value: _switchSelected,//当前状态
+                    onChanged: (value) {
+                      value ? strict(context) : easy(context);
+                    },
+                  ),
+                  Text(textv),
+                ],
+              )
             ],
           )
         );
@@ -157,7 +223,7 @@ class TopHellow extends StatelessWidget {
                           style: TextStyle(color: Colors.black45),
                         ),
                         TextSpan(
-                          text: " 今日任务 ",
+                          text: " 娱乐/休息 ",
                           style: TextStyle(color: myColor, ),
                         ),
                         TextSpan(
@@ -221,7 +287,7 @@ class _ListsState extends State<Lists> {
 
   @override
   Widget build(BuildContext context) {
-    // initList(context, "0");  
+    // initList(context, "1");  
     return Container(
       decoration: new BoxDecoration(
         color: Colors.white,
@@ -231,7 +297,7 @@ class _ListsState extends State<Lists> {
       margin: const EdgeInsets.only(left: 5.0, right: 5.0, top: 10.0, bottom: 10.0),
       child: Provide<ItemList>(
         builder: (context, child, counter) {
-          var data = counter.items;
+          var data = counter.plays;
           return data.length != 0 ? Container(
             child: ListView.separated(
               physics: ClampingScrollPhysics(),
@@ -243,7 +309,7 @@ class _ListsState extends State<Lists> {
                 var complete = data[index]["complete"].toString();
                 var im = data[index]["im"].toString();
                 var title = data[index]["title"].toString();
-                return ListsItem(complete: complete, im: im, title: title, cate: "0", index: index);
+                return ListsItem(complete: complete, im: im, title: title, cate: "1", index: index);
               },
               separatorBuilder: (BuildContext context, int index) => const Divider(color: Colors.black12, height: 6),
             ),
@@ -260,7 +326,7 @@ class _ListsState extends State<Lists> {
 
 // 任务列表项
 class ListsItem extends StatefulWidget {
-  ListsItem({Key key, this.cate, this.complete, this.im, this.title, this.index}) : super(key: key);
+  ListsItem({Key key, this.complete, this.im, this.title, this.cate, this.index}) : super(key: key);
   final String complete;
   final String cate;
   final String im;
@@ -274,13 +340,16 @@ class ListsItem extends StatefulWidget {
 class _ListsItemState extends State<ListsItem> {
   var complete = "0";
   var im = "0";
-  var title = "0";
+  bool content = false;
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
     complete = this.widget.complete;
     im = this.widget.im;
-    title = this.widget.title;
+    super.initState();
+  }
+  @override
+  Widget build(BuildContext context) {
     return Material( 
       color: Colors.white,
       child: InkWell(
@@ -307,7 +376,7 @@ class _ListsItemState extends State<ListsItem> {
                 ),
               ),
               Expanded(
-                child: Text(title, 
+                child: Text(this.widget.title, 
                   style: complete == "1" ? TextStyle(fontSize: 15.0, decoration: TextDecoration.lineThrough, color: toColor('#8c8c8c')) 
                     : TextStyle(fontSize: 15.0),
                   softWrap: false,
@@ -320,6 +389,26 @@ class _ListsItemState extends State<ListsItem> {
                   setState(() {
                     im = im == "1" ? "0" : "1";
                     itemIm(context, this.widget.cate, this.widget.index, im);
+                    // switch(this.widget.cate) {
+                    //   case 0:
+                    //     // 今日任务
+                    //     // Provide.value<ItemList>(context).changeCollect(index, collect);
+                    //     break;
+                    //   case 1:
+                    //     // 娱乐
+                    //     Provide.value<PlayList>(context).changeCollect(index, collect);
+                    //     break;
+                    //   case 3:
+                    //     // 月计划
+                    //     Provide.value<ItemListMonth>(context).changeCollect(index, collect);
+                    //     break;
+                    //   case 4:
+                    //     // 年计划
+                    //     Provide.value<ItemListYear>(context).changeCollect(index, collect);
+                    //     break;
+                    //   default:
+                    //     break;
+                    // }
                   });
                 },
                 child: Padding(

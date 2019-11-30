@@ -145,7 +145,7 @@ class PopRoute extends PopupRoute{
 
 }
 
-void addPrefsList(s, testList) async {
+void addPrefsList(s, List<String> testList) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   prefs.setStringList(s, testList);
 
@@ -155,7 +155,7 @@ void addPrefsList(s, testList) async {
 }
 
 Future showPrefsList(s) async {
-  var v = [];
+  List<String> v = [];
   SharedPreferences prefs = await SharedPreferences.getInstance();
   if ( prefs.getStringList(s) != null ) {
     v = prefs.getStringList(s);
@@ -182,25 +182,74 @@ void removePrefs(s) async {
   prefs.remove(s);
 }
 
+// cate
+var catePages = ["0", "1"];
+
 // init
 void initApp(context) {
   getAjax(
     "UserInformation",{}
   ).then((val){
+    for (var i = 0; i < catePages.length; i++) {
+      // var catestr = getCatestr(catePages[i]);
+      // removePrefs(catestr);
+      initList(context, catePages[i]);
+    }
+    print(val["err"] != 0);
     if (val["err"] != 0) {
       // 没登陆
       Provide.value<UserData>(context).logout();
+      showPrefsValue("login").then((v){
+        if (v != "") {
+          var vjson = json.decode(v);
+          var pro = Provide.value<UserData>(context);
+          print(int.parse(vjson["heart"]));
+          pro.changeHeart(int.parse(vjson["heart"]));
+        }
+      });
     } else {
       showPrefsValue("login").then((v){
         if (v != "") {
           var vjson = json.decode(v);
           if (vjson["login"] == "1") {
+            var jsondata = {
+              "avatar": vjson["avatar"], 
+              "mobile": vjson["mobile"], 
+              "nickname": vjson["nickname"], 
+              "heart": vjson["heart"], 
+              "login": "1", 
+            };
+            var jv = json.encode(jsondata);
+            addPrefsValue("login", jv);  
+            editMyHeart(context, int.parse(vjson["heart"]));
             var pro = Provide.value<UserData>(context);
             pro.changeAll("1", vjson["avatar"], vjson["mobile"], vjson["nickname"], int.parse(vjson["heart"]));
-            topTodayData(context, 0);
           }
         }
       });
     }
   });
+}
+
+String getCatestr(cate) {
+  var catestr = "items";
+  switch(cate) {
+    case "1":
+      // 娱乐
+      catestr = "play";
+      break;
+    case "2":
+      // 明日
+      break;
+    case "3":
+      // 月计划
+      break;
+    case "4":
+      // 年计划
+      break;
+    default:
+      break;
+  }
+
+  return catestr;
 }
